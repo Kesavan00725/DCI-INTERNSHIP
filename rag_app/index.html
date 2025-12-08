@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Gemini RAG Demo</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      margin: 0;
+      padding: 0;
+      background: #0f172a;
+      color: #e5e7eb;
+      display: flex;
+      justify-content: center;
+    }
+    .container {
+      max-width: 900px;
+      width: 100%;
+      padding: 32px 16px 48px;
+    }
+    h1 {
+      font-size: 28px;
+      margin-bottom: 4px;
+      color: #f9fafb;
+    }
+    .subtitle {
+      color: #9ca3af;
+      font-size: 14px;
+      margin-bottom: 24px;
+    }
+    .card {
+      background: #020617;
+      border-radius: 16px;
+      padding: 20px;
+      box-shadow: 0 20px 40px rgba(15, 23, 42, 0.8);
+      border: 1px solid #1f2937;
+    }
+    label {
+      font-size: 14px;
+      font-weight: 500;
+      display: block;
+      margin-bottom: 6px;
+    }
+    textarea, input, select {
+      width: 100%;
+      font-family: inherit;
+      font-size: 14px;
+      padding: 10px 12px;
+      border-radius: 10px;
+      border: 1px solid #374151;
+      background: #020617;
+      color: #e5e7eb;
+      outline: none;
+    }
+    textarea:focus, input:focus, select:focus {
+      border-color: #6366f1;
+      box-shadow: 0 0 0 1px #6366f1;
+    }
+    textarea { min-height: 80px; resize: vertical; }
+
+    .row {
+      display: flex;
+      gap: 12px;
+      margin-top: 10px;
+      flex-wrap: wrap;
+    }
+    .row > div {
+      flex: 1;
+      min-width: 140px;
+    }
+
+    button {
+      margin-top: 14px;
+      padding: 10px 18px;
+      border-radius: 999px;
+      border: none;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      background: linear-gradient(135deg, #4f46e5, #6366f1);
+      color: white;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+    button:disabled {
+      opacity: 0.6;
+      cursor: default;
+    }
+
+    .status {
+      font-size: 13px;
+      margin-top: 8px;
+      color: #9ca3af;
+    }
+    .status.error { color: #f97373; }
+
+    .section {
+      margin-top: 24px;
+    }
+    .section h2 {
+      font-size: 18px;
+      margin-bottom: 8px;
+    }
+
+    #answer-box {
+      background: #020617;
+      border-radius: 12px;
+      border: 1px solid #1f2937;
+      padding: 14px 16px;
+      min-height: 40px;
+      white-space: pre-wrap;
+    }
+
+    .sources-list {
+      margin-top: 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .source-card {
+      background: #020617;
+      border-radius: 12px;
+      border: 1px solid #1f2937;
+      padding: 12px 14px;
+      font-size: 13px;
+    }
+    .source-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 6px;
+    }
+    .badge {
+      font-size: 11px;
+      padding: 2px 6px;
+      border-radius: 999px;
+      background: #111827;
+      border: 1px solid #374151;
+      color: #9ca3af;
+    }
+    pre {
+      white-space: pre-wrap;
+      margin: 0;
+      font-family: inherit;
+      color: #d1d5db;
+    }
+    .footer {
+      margin-top: 32px;
+      font-size: 12px;
+      color: #6b7280;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Gemini RAG Demo</h1>
+    <div class="subtitle">
+      Ask a question and get an answer grounded in your <code>data/</code> documents.
+    </div>
+
+    <div class="card">
+      <label for="question">Question</label>
+      <textarea id="question" placeholder="e.g. What is this project about?"></textarea>
+
+      <div class="row">
+        <div>
+          <label for="topk">Top-K Chunks</label>
+          <select id="topk">
+            <option value="1">1</option>
+            <option value="3" selected>3</option>
+            <option value="5">5</option>
+          </select>
+        </div>
+        <div>
+          <label>&nbsp;</label>
+          <button id="ask-btn" onclick="ask()">Ask Gemini</button>
+        </div>
+      </div>
+
+      <div id="status" class="status"></div>
+    </div>
+
+    <div class="section">
+      <h2>Answer</h2>
+      <div id="answer-box"></div>
+    </div>
+
+    <div class="section">
+      <h2>Source Passages</h2>
+      <div id="sources" class="sources-list"></div>
+    </div>
+
+    <div class="footer">
+      Backend: FastAPI + Gemini · Documents: <code>rag_app/data</code>
+    </div>
+  </div>
+
+  <script>
+    async function ask() {
+      const questionEl = document.getElementById("question");
+      const topkEl = document.getElementById("topk");
+      const statusEl = document.getElementById("status");
+      const answerBox = document.getElementById("answer-box");
+      const sourcesDiv = document.getElementById("sources");
+      const btn = document.getElementById("ask-btn");
+
+      const question = questionEl.value.trim();
+      const top_k = parseInt(topkEl.value, 10);
+
+      if (!question) {
+        statusEl.textContent = "Please enter a question.";
+        statusEl.className = "status error";
+        return;
+      }
+
+      // Reset UI
+      statusEl.textContent = "Thinking...";
+      statusEl.className = "status";
+      answerBox.textContent = "";
+      sourcesDiv.innerHTML = "";
+      btn.disabled = true;
+
+      try {
+        const res = await fetch("/ask", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ question, top_k })
+        });
+
+        const data = await res.json();
+
+        if (!res.ok) {
+          statusEl.textContent = data.detail || "Request failed.";
+          statusEl.className = "status error";
+          btn.disabled = false;
+          return;
+        }
+
+        // Show answer
+        answerBox.textContent = data.answer || "(no answer)";
+
+        // Show sources
+        if (Array.isArray(data.sources) && data.sources.length > 0) {
+          data.sources.forEach((s, idx) => {
+            const card = document.createElement("div");
+            card.className = "source-card";
+
+            card.innerHTML = `
+              <div class="source-header">
+                <div>
+                  <span class="badge">Source ${idx + 1}</span>
+                  <span style="margin-left:8px; color:#e5e7eb;">${s.filename}</span>
+                </div>
+                <div class="badge">sim: ${s.similarity.toFixed(3)}</div>
+              </div>
+              <pre>${s.text}</pre>
+            `;
+
+            sourcesDiv.appendChild(card);
+          });
+        } else {
+          sourcesDiv.innerHTML = '<span class="status">No sources returned.</span>';
+        }
+
+        statusEl.textContent = "Done.";
+        statusEl.className = "status";
+      } catch (err) {
+        console.error(err);
+        statusEl.textContent = "Error: " + (err.message || err);
+        statusEl.className = "status error";
+      } finally {
+        btn.disabled = false;
+      }
+    }
+  </script>
+</body>
+</html>

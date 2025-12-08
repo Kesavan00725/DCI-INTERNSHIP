@@ -1,0 +1,5 @@
+This project is a small Retrieval-Augmented Generation (RAG) demo.
+
+It uses FastAPI and Gemini to answer questions based only on the text documents placed in the data folder.
+
+The system loads .txt and .md files, chunks them, embeds them, and retrieves the most similar chunks for each user question.
