@@ -1,0 +1,8 @@
+Django
+djangorestframework
+python-dotenv
+sentence-transformers
+faiss-cpu
+requests
+numpy
+youtube-transcript-api

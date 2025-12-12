@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Django RAG Chatbot</title>
+<style>
+    body {
+        font-family: Arial;
+        background: #f3f4f6;
+        padding: 40px;
+        display: flex;
+        justify-content: center;
+    }
+    .container {
+        background: white;
+        padding: 25px;
+        max-width: 700px;
+        width: 100%;
+        border-radius: 16px;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    }
+    h1 { text-align:center }
+    .input-box {
+        display:flex;
+        gap:10px;
+    }
+    input {
+        flex:1;
+        padding:12px;
+        font-size:16px;
+        border:2px solid #ddd;
+        border-radius:10px;
+    }
+    button {
+        padding: 12px 20px;
+        background:#2563eb;
+        color:white;
+        border:0;
+        border-radius:10px;
+        cursor:pointer;
+    }
+    .output { margin-top:20px; }
+</style>
+</head>
+<body>
+
+<div class="container">
+    <h1>🎓 Django RAG Chatbot</h1>
+
+    <div class="input-box">
+        <input id="q" placeholder="Ask anything about Django...">
+        <button onclick="ask()">Ask</button>
+    </div>
+
+    <div id="out" class="output"></div>
+</div>
+
+<script>
+async function ask(){
+    const q = document.getElementById("q").value;
+
+    const res = await fetch("/api/query/", {
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({q})
+    });
+
+    const j = await res.json();
+
+    document.getElementById("out").innerHTML = `
+        <h3>Intro</h3><p>${j.intro}</p>
+        <h3>Answer</h3><p>${j.answer}</p>
+        <h3>Recommended Videos</h3>
+        ${j.videos.map(v => `<a href="${v}" target="_blank">${v}</a><br>`).join("")}
+    `;
+}
+</script>
+
+</body>
+</html>
